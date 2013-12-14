@@ -10,14 +10,14 @@ class SkyDrive
     const settings_contents_sort_order = 'ascending';
 
     const settings_cookie_name = 'skydrive-php-api';
-    const settings_cookie_expire = 3600;
+    const settings_cookie_expire = 2592000; // 3600 * 24 * 30
     const settings_cookie_path = '/';
 
-    const settings_scope = 'wl.basic wl.skydrive wl.skydrive_update';
+    const settings_scope = 'wl.basic wl.skydrive wl.skydrive_update wl.offline_access';
 
     private $token = '';
     private $settings = array();
-    private $info = array();
+    private $api = array();
     private $contents = array();
 
     public function __construct ($settings)
@@ -27,13 +27,16 @@ class SkyDrive
         }
 
         $settings = $this->setSettings($settings);
+        $cookie = $this->cookie();
 
-        if (isset($_COOKIE[$settings['cookie_name']])) {
-            $this->token = $_COOKIE[$settings['cookie_name']];
+        if (isset($cookie['access_token'])) {
+            $this->token = $cookie['access_token'];
         }
 
         if (empty($this->token) && isset($_GET['code'])) {
             $this->getAccessToken($_GET['code']);
+        } else if ($this->token && $this->isTokenExpired()) {
+            $this->refreshAccessToken();
         }
 
         if (empty($this->token)) {
@@ -72,7 +75,9 @@ class SkyDrive
         }
 
         if (empty($settings['cookie_expire'])) {
-            $settings['cookie_expire'] = self::settings_cookie_expire;
+            $settings['cookie_expire'] = time() + self::settings_cookie_expire;
+        } else if ($settings['cookie_expire'] <= time()) {
+            $settings['cookie_expire'] += time();
         }
 
         if (empty($settings['cookie_name'])) {
@@ -88,6 +93,8 @@ class SkyDrive
 
     private function authenticate ()
     {
+        $this->cookie(true);
+
         $url = self::authUrl.'?'.http_build_query(array(
             'redirect_uri' => $this->settings['redirect_uri'],
             'client_id' => $this->settings['client_id'],
@@ -98,23 +105,22 @@ class SkyDrive
         die(header('Location: '.$url));
     }
 
+    public function isTokenExpired ()
+    {
+        return ($this->cookie('expires_in') < (time() + 30));
+    }
+
     private function getAccessToken ($code)
     {
         $query = array(
             'client_id' => $this->settings['client_id'],
             'client_secret' => $this->settings['client_secret'],
-            'redirect_uri' => $this->settings['redirect_uri']
+            'redirect_uri' => $this->settings['redirect_uri'],
+            'code' => $code,
+            'grant_type' => 'authorization_code'
         );
 
-        if (empty($this->token)) {
-            $query['code'] = $code;
-            $query['grant_type'] = 'authorization_code';
-        } else {
-            $query['code'] = $this->token;
-            $query['grant_type'] = 'refresh_token';
-        }
-
-        $this->cookie('', true);
+        $this->cookie(true);
 
         try {
             $response = $this->curl(self::codeUrl.'?'.http_build_query($query));
@@ -122,18 +128,62 @@ class SkyDrive
             throw new Exception('Sorry but your login haven\'t been authorized to use SkyDrive. Error: '.$e->getMessage());
         }
 
-        $this->cookie($response['access_token']);
+        $response['code'] = $code;
+        $response['expires_in'] += time();
+
+        $this->cookie($response);
 
         die(header('Location: '.self::uri()));
     }
 
-    public function accountInfo ($refresh = null)
+    private function refreshAccessToken ()
     {
-        if ($this->info && ($refresh === null)) {
-            return $this->info;
+        $query = array(
+            'client_id' => $this->settings['client_id'],
+            'client_secret' => $this->settings['client_secret'],
+            'redirect_uri' => $this->settings['redirect_uri'],
+            'refresh_token' => $this->cookie('refresh_token'),
+            'grant_type' => 'refresh_token'
+        );
+
+        $this->cookie(true);
+
+        try {
+            $response = $this->curl(self::codeUrl.'?'.http_build_query($query));
+        } catch (Exception $e) {
+            throw new Exception('Sorry but your login haven\'t been authorized to use SkyDrive. Error: '.$e->getMessage());
         }
 
-        return $this->info = $this->curl(self::baseUrl.'me');
+        $response['expires_in'] += time();
+
+        $this->cookie($response);
+
+        return $this->token = $response['access_token'];
+    }
+
+    public function api ($cmd, $refresh = false)
+    {
+        if (isset($this->api[$cmd]) && ($refresh === false)) {
+            return $this->api[$cmd];
+        }
+
+        return $this->api[$cmd] = $this->curl(self::baseUrl.$cmd);
+    }
+
+    public function me ($cmd = 'me', $refresh = false)
+    {
+        switch ($cmd) {
+            case 'me':
+                return $this->api('me');
+
+            case 'quota':
+                return $this->api('me/skydrive/quota');
+
+            case 'permissions':
+                return $this->api('me/permissions');
+        }
+
+        throw new Exception(sprintf('"%s" command is not available', $cmd));
     }
 
     public function folderContents ($path = '')
@@ -194,29 +244,70 @@ class SkyDrive
         return  $this->contents[$path];
     }
 
-    public function getFile ($file) {
+    public function newFolder ($path, $name, $description = '')
+    {
+        $path = $path ?: 'me/skydrive';
+
+        return $this->curl(self::baseUrl.$path, array(
+            'name' => $name,
+            'description' => $description
+        ));
+    }
+
+    public function getFile ($file)
+    {
         return $this->curl(self::baseUrl.$file.'/content?download=true', array(), false);
     }
 
-    public function putFile ($file, $name, $path) {
+    public function putFile ($file, $name, $path)
+    {
+        if (!is_file($file)) {
+            throw new Exception(sprintf('"%s" not exists', $file));
+        }
+
         $path = $path ?: 'me/skydrive';
 
         return $this->curl(self::baseUrl.$path.'/files/'.urlencode($name), array(
             'file' => $file
-        ), true, 201);
+        ));
     }
 
-    private function cookie ($value, $unset = false)
+    private function cookie ($key = null, $value = null)
     {
-        return setcookie(
-            $this->settings['cookie_name'],
-            $value,
-            ($unset ? -3600 : (time() + $this->settings['cookie_expire'])),
-            $this->settings['cookie_path']
-        );
+        $s = $this->settings;
+
+        if (isset($_COOKIE[$s['cookie_name']]) && $_COOKIE[$s['cookie_name']]) {
+            $cookie = unserialize(gzinflate(base64_decode($_COOKIE[$s['cookie_name']])));
+        } else {
+            $cookie = array();
+        }
+
+        if (is_null($key)) {
+            return $cookie;
+        }
+
+        if (is_string($key) && is_null($value)) {
+            return isset($cookie[$key]) ? $cookie[$key] : null;
+        }
+
+        if ($key === true) {
+            return setcookie($s['cookie_name'], '', -3600, $s['cookie_path']);
+        }
+
+        if (is_array($key)) {
+            $cookie = $key;
+        } else {
+            $cookie[$key] = $value;
+        }
+
+        $value = base64_encode(gzdeflate(serialize($cookie)));
+
+        setcookie($s['cookie_name'], $value, $s['cookie_expire'], $s['cookie_path']);
+
+        return $cookie;
     }
 
-    private function curl ($url, $post = array(), $json = true, $code = 200)
+    private function curl ($url, $post = array(), $json = true)
     {
         $curl = curl_init();
 
@@ -224,12 +315,13 @@ class SkyDrive
         curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($curl, CURLOPT_FAILONERROR, false);
         curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
         curl_setopt($curl, CURLOPT_HTTPHEADER, array(
-            ($this->token ? '' : 'Content-Type: application/json'),
+            ($post ? 'Content-Type: application/json' : ''),
             ($this->token ? ('Authorization: Bearer '.$this->token) : '')
         ));
 
-        if ($post && isset($post['file'])) {
+        if ($post && isset($post['file']) && is_file($post['file'])) {
             $pointer = fopen($post['file'], 'r');
 
             curl_setopt($curl, CURLOPT_CUSTOMREQUEST, 'PUT');
@@ -243,19 +335,19 @@ class SkyDrive
         $response = curl_exec($curl);
         $response = ($response && $json) ? json_decode($response, true) : $response;
 
-        if (curl_getinfo($curl, CURLINFO_HTTP_CODE) !== $code) {
-            if (isset($response['error_description'])) {
-                $error = $response['error_description'];
-            } else if (isset($response['error']['message'])) {
-                $error = $response['error']['message'];
-            } else {
-                $error = 'Unknown error';
-            }
-
-            throw new Exception($error);
+        if (preg_match('/^20/', curl_getinfo($curl, CURLINFO_HTTP_CODE))) {
+            return (empty($response) && $json) ? array() : $response;
         }
 
-        return (empty($response) && $json) ? array() : $response;
+        if (isset($response['error_description'])) {
+            $error = $response['error_description'];
+        } else if (isset($response['error']['message'])) {
+            $error = $response['error']['message'];
+        } else {
+            $error = 'Unknown error';
+        }
+
+        throw new Exception($error);
     }
 
     static function uri ()
@@ -270,7 +362,7 @@ class SkyDrive
         }
 
         $uri = preg_replace('/(^|\W)code=[^&]+/', '$1', getenv('REQUEST_URI'));
-        $uri = preg_replace('/\?$/', '', $uri);
+        $uri = preg_replace('/(\?|\&)$/', '', $uri);
 
         return 'http'.($https ? 's' : '').'://'.getenv('SERVER_NAME').$port.$uri;
     }
