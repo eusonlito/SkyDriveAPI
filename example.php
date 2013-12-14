@@ -7,7 +7,7 @@ try {
         'client_secret' => 'XXXXXXXXXXXXXXXXXXXXX'
     ]);
 } catch (Exception $e) {
-    die($e->getMessage().'<br /><br />You can to try authenticate again <a href="'.SkyDriveAPI::uri().'">here</a>');
+    die($e->getMessage().'<br /><br />You can to try authenticate again <a href="'.SkyDriveAPI\SkyDriveAPI::uri().'">here</a>');
 }
 
 echo '<pre>';

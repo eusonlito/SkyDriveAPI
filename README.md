@@ -7,13 +7,15 @@ LOAD
 ===
 
 ```php
+include 'SkyDriveAPI.php';
+
 try {
     $SkyDrive = new SkyDriveAPI\SkyDriveAPI([
         'client_id' => 'XXXXX',
         'client_secret' => 'XXXXXXXX'
     ]);
 } catch (Exception $e) {
-    die($e->getMessage().'<br /><br />You can to try authenticate again <a href="'.SkyDrive::uri().'">here</a>');
+    die($e->getMessage().'<br /><br />You can to try authenticate again <a href="'.SkyDriveAPI\SkyDriveAPI::uri().'">here</a>');
 }
 ```
 
