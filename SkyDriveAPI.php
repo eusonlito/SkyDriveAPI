@@ -1,5 +1,9 @@
 <?php
-class SkyDrive
+namespace SkyDriveAPI;
+
+use \Exception;
+
+class SkyDriveAPI
 {
     const authUrl = 'https://login.live.com/oauth20_authorize.srf';
     const codeUrl = 'https://login.live.com/oauth20_token.srf';

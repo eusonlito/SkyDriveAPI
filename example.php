@@ -1,13 +1,13 @@
 <?php
-include 'SkyDrive.php';
+include 'SkyDriveAPI.php';
 
 try {
-    $SkyDrive = new SkyDrive([
+    $SkyDrive = new SkyDriveAPI\SkyDriveAPI([
         'client_id' => 'XXXXXXXXXXXXXXXXXXXXX',
         'client_secret' => 'XXXXXXXXXXXXXXXXXXXXX'
     ]);
 } catch (Exception $e) {
-    die($e->getMessage().'<br /><br />You can to try authenticate again <a href="'.SkyDrive::uri().'">here</a>');
+    die($e->getMessage().'<br /><br />You can to try authenticate again <a href="'.SkyDriveAPI::uri().'">here</a>');
 }
 
 echo '<pre>';
