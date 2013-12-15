@@ -1,6 +1,14 @@
 # SkyDriveAPI
 
-Microsoft SkyDrive PHP API
+Microsoft SkyDrive PHP API.
+
+Remeber to create your authorized application in https://account.live.com/developers/applications
+
+Once created, configure this API with the Client ID and Client Secret values.
+
+If you are using a multi-subdomain environment, configure your application with first level domain, for example:
+
+http://user1.mydomain.com/, http://user2.mydomain.com/, ... > Redirect URI = http://mydomain.com/
 
 ## LOAD
 
