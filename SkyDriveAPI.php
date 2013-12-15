@@ -127,7 +127,7 @@ class SkyDriveAPI
         $this->cookie(true);
 
         try {
-            $response = $this->curl(self::codeUrl.'?'.http_build_query($query));
+            $response = $this->curl('GET', self::codeUrl.'?'.http_build_query($query));
         } catch (Exception $e) {
             throw new Exception('Sorry but your login haven\'t been authorized to use SkyDrive. Error: '.$e->getMessage());
         }
@@ -153,7 +153,7 @@ class SkyDriveAPI
         $this->cookie(true);
 
         try {
-            $response = $this->curl(self::codeUrl.'?'.http_build_query($query));
+            $response = $this->curl('GET', self::codeUrl.'?'.http_build_query($query));
         } catch (Exception $e) {
             throw new Exception('Sorry but your login haven\'t been authorized to use SkyDrive. Error: '.$e->getMessage());
         }
@@ -171,7 +171,7 @@ class SkyDriveAPI
             return $this->api[$cmd];
         }
 
-        return $this->api[$cmd] = $this->curl(self::baseUrl.$cmd);
+        return $this->api[$cmd] = $this->curl('GET', self::baseUrl.$cmd);
     }
 
     public function me ($cmd = 'me', $refresh = false)
@@ -190,6 +190,16 @@ class SkyDriveAPI
         throw new Exception(sprintf('"%s" command is not available', $cmd));
     }
 
+    public function createFolder ($path, $name, $description = '')
+    {
+        $path = $path ?: 'me/skydrive';
+
+        return $this->curl('POST', self::baseUrl.$path, array(
+            'name' => $name,
+            'description' => $description
+        ));
+    }
+
     public function folderContents ($path = '')
     {
         $path = $path ?: 'me/skydrive';
@@ -204,7 +214,7 @@ class SkyDriveAPI
         ));
 
         if ($path) {
-            $current = $this->curl(self::baseUrl.$path);
+            $current = $this->curl('GET', self::baseUrl.$path);
 
             if (strstr($current['parent_id'], '!')) {
                 $location[] = array(
@@ -223,7 +233,7 @@ class SkyDriveAPI
         );
 
         if (empty($path) || (isset($current) && isset($current['count']) && ($current['count'] > 0))) {
-            $contents = $this->curl(self::baseUrl.$path.'/files?'.http_build_query(array(
+            $contents = $this->curl('GET', self::baseUrl.$path.'/files?'.http_build_query(array(
                 'sort_by' => $this->settings['contents_sort_by'],
                 'sort_order' => $this->settings['contents_sort_order'],
                 'limit' => $this->settings['contents_limit']
@@ -248,22 +258,12 @@ class SkyDriveAPI
         return  $this->contents[$path];
     }
 
-    public function newFolder ($path, $name, $description = '')
+    public function downloadFile ($file)
     {
-        $path = $path ?: 'me/skydrive';
-
-        return $this->curl(self::baseUrl.$path, array(
-            'name' => $name,
-            'description' => $description
-        ));
+        return $this->curl('GET', self::baseUrl.$file.'/content?download=true', array(), false);
     }
 
-    public function getFile ($file)
-    {
-        return $this->curl(self::baseUrl.$file.'/content?download=true', array(), false);
-    }
-
-    public function putFile ($file, $name, $path)
+    public function uploadFile ($file, $name, $path)
     {
         if (!is_file($file)) {
             throw new Exception(sprintf('"%s" not exists', $file));
@@ -271,8 +271,39 @@ class SkyDriveAPI
 
         $path = $path ?: 'me/skydrive';
 
-        return $this->curl(self::baseUrl.$path.'/files/'.urlencode($name), array(
+        return $this->curl('PUT', self::baseUrl.$path.'/files/'.urlencode($name), array(
             'file' => $file
+        ));
+    }
+
+    public function delete ($current)
+    {
+        if (empty($current)) {
+            throw new Exception('This file or folder can not be deleted');
+        }
+
+        return $this->curl('DELETE', self::baseUrl.$current);
+    }
+
+    public function copy ($original, $path)
+    {
+        if (empty($original)) {
+            throw new Exception('This file can not be deleted');
+        }
+
+        return $this->curl('COPY', self::baseUrl.$original, array(
+            'destination' => $path
+        ));
+    }
+
+    public function move ($original, $path)
+    {
+        if (empty($original)) {
+            throw new Exception('This file can not be deleted');
+        }
+
+        return $this->curl('MOVE', self::baseUrl.$original, array(
+            'destination' => $path
         ));
     }
 
@@ -311,29 +342,33 @@ class SkyDriveAPI
         return $cookie;
     }
 
-    private function curl ($url, $post = array(), $json = true)
+    private function curl ($request, $url, $data = array(), $json = true)
     {
+        $request = strtoupper($request);
         $curl = curl_init();
 
         curl_setopt($curl, CURLOPT_URL, $url);
+        curl_setopt($curl, CURLOPT_CUSTOMREQUEST, $request);
         curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($curl, CURLOPT_FAILONERROR, false);
         curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);
         curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
         curl_setopt($curl, CURLOPT_HTTPHEADER, array(
-            ($post ? 'Content-Type: application/json' : ''),
+            ($data ? 'Content-Type: application/json' : ''),
             ($this->token ? ('Authorization: Bearer '.$this->token) : '')
         ));
 
-        if ($post && isset($post['file']) && is_file($post['file'])) {
-            $pointer = fopen($post['file'], 'r');
+        if (defined('CURLOPT_'.$request)) {
+            curl_setopt($curl, constant('CURLOPT_'.$request), true);
+        }
 
-            curl_setopt($curl, CURLOPT_CUSTOMREQUEST, 'PUT');
-            curl_setopt($curl, CURLOPT_PUT, true);
-            curl_setopt($curl, CURLOPT_INFILE, $pointer);
-        } else if ($post) {
-            curl_setopt($curl, CURLOPT_POST, true);
-            curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($post));
+        if ($data && isset($data['file']) && is_file($data['file'])) {
+            curl_setopt($curl, CURLOPT_INFILE, fopen($data['file'], 'r'));
+            unset($data['file']);
+        }
+
+        if ($data) {
+            curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($data));
         }
 
         $response = curl_exec($curl);

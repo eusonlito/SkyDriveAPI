@@ -1,10 +1,8 @@
-SkyDriveAPI
-===========
+# SkyDriveAPI
 
 Microsoft SkyDrive PHP API
 
-LOAD
-===
+## LOAD
 
 ```php
 include 'SkyDriveAPI.php';
@@ -19,80 +17,77 @@ try {
 }
 ```
 
-FUNCTIONS
-===
+## FUNCTIONS
+
+### me()
 
 ```php
 # Get current account info
-try {
-    $account = $SkyDrive->me();
-} catch (Exception $e) {
-    echo 'Sorry but account info is not available now. Error: '.$e->getMessage();
-}
+$account = $SkyDrive->me();
+```
 
-print_r($account);
+### me('quota')
 
+```php
 # Get quota info
-try {
-    $quota = $SkyDrive->me('quota');
-} catch (Exception $e) {
-    echo 'Sorry but quota info is not available now. Error: '.$e->getMessage();
-}
+$quota = $SkyDrive->me('quota');
+```
 
-print_r($quota);
+### me('permissions')
 
+```php
 # Get permissions info
-try {
-    $permissions = $SkyDrive->me('permissions');
-} catch (Exception $e) {
-    echo 'Sorry but permissions info is not available now. Error: '.$e->getMessage();
-}
+$permissions = $SkyDrive->me('permissions');
+```
 
-print_r($permissions);
+### folderContents($folder_id)
 
-$folder = isset($_GET['folder_id']) ? $_GET['folder_id'] : '';
-$file = isset($_GET['file_id']) ? $_GET['file_id'] : '';
-
+```php
 # Get folder contents
 # Returns array with 'location', 'folders' and 'files' list
-try {
-    $contents = $SkyDrive->folderContents($folder);
-} catch (Exception $e) {
-    echo 'Sorry but this folder seems not be available. Error: '.$e->getMessage();
-}
+$contents = $SkyDrive->folderContents($folder_id);
+```
 
-print_r($contents);
+### createFolder($folder_id, $name)
 
-if ($file) {
-    # Download file
-    try {
-        $file = $SkyDrive->getFile($file);
-    } catch (Exception $e) {
-        echo 'Sorry but this file couldn\'t be downloaded. Error: '.$e->getMessage();
-    }
-}
+```php
+# Create a new folder
+$folder = $SkyDrive->createFolder($folder_id, $name);
+```
 
-if (isset($_GET['upload'])) {
-    # Upload file
-    try {
-        $SkyDrive->putFile(__FILE__, uniqid().'.txt', $folder);
-    } catch (Exception $e) {
-        echo 'Sorry but this file couldn\'t be uploaded. Error: '.$e->getMessage();
-    }
+### uploadFile($file_path, $name, $folder_id)
 
-    echo 'Done!';
-}
+```php
+# Upload file (returns array info with new file information)
+$file = $SkyDrive->uploadFile(__FILE__, uniqid().'.txt', $folder);
+```
 
-if (isset($_GET['create'])) {
-    # Create a new folder
-    try {
-        $SkyDrive->newFolder($folder, uniqid());
-    } catch (Exception $e) {
-        echo 'Sorry but this folder couldn\'t be created. Error: '.$e->getMessage();
-    }
+### downloadFile($file_id)
 
-    echo 'Done!';
-}
+```php
+# Download file (returns file contents)
+$contents = $SkyDrive->downloadFile($file);
+```
+
+### delete($file_id | $folder_id)
+
+```php
+# Delete file / folder
+$SkyDrive->delete($file_id);
+```
+
+### copy($file_id)
+
+```php
+# Copy file into another folder
+$SkyDrive->copy($file_id, $folder_id);
+```
+
+### move($file_id | $folder_id)
+
+```php
+# Move file / folder into another folder
+$SkyDrive->move($file_id, $folder_id);
 ```
 
 I will add more features :)
