@@ -13,7 +13,10 @@ try {
         'client_secret' => 'XXXXXXXX'
     ]);
 } catch (Exception $e) {
-    die($e->getMessage().'<br /><br />You can to try authenticate again <a href="'.SkyDriveAPI\SkyDriveAPI::uri().'">here</a>');
+    die(
+        '<p>'.$e->getMessage().'</p>'.
+        '<p>You can to try to authenticate again <a href="'.SkyDriveAPI\SkyDriveAPI::uri().'">here</a></p>'
+    );
 }
 ```
 
@@ -55,18 +58,18 @@ $contents = $SkyDrive->folderContents($folder_id);
 $folder = $SkyDrive->createFolder($folder_id, $name);
 ```
 
-### uploadFile($file_path, $name, $folder_id)
+### uploadFile($local_file_path, $name, $folder_id)
 
 ```php
 # Upload file (returns array info with new file information)
-$file = $SkyDrive->uploadFile(__FILE__, uniqid().'.txt', $folder);
+$file = $SkyDrive->uploadFile(__FILE__, uniqid().'.txt', $folder_id);
 ```
 
 ### downloadFile($file_id)
 
 ```php
 # Download file (returns file contents)
-$contents = $SkyDrive->downloadFile($file);
+$contents = $SkyDrive->downloadFile($file_id);
 ```
 
 ### delete($file_id | $folder_id)
