@@ -165,26 +165,28 @@ class SkyDriveAPI
         return $this->token = $response['access_token'];
     }
 
-    public function api ($cmd, $refresh = false)
+    public function api ($method, $cmd, $data = array(), $json = true, $refresh = false)
     {
-        if (isset($this->api[$cmd]) && ($refresh === false)) {
-            return $this->api[$cmd];
+        $key = $method.$cmd.serialize($data);
+
+        if (isset($this->api[$key]) && ($refresh === false)) {
+            return $this->api[$key];
         }
 
-        return $this->api[$cmd] = $this->curl('GET', self::baseUrl.$cmd);
+        return $this->api[$key] = $this->curl($method, self::baseUrl.$cmd, $data, $json);
     }
 
-    public function me ($cmd = 'me', $refresh = false)
+    public function me ($cmd = 'me')
     {
         switch ($cmd) {
             case 'me':
-                return $this->api('me');
+                return $this->api('GET', 'me');
 
             case 'quota':
-                return $this->api('me/skydrive/quota');
+                return $this->api('GET', 'me/skydrive/quota');
 
             case 'permissions':
-                return $this->api('me/permissions');
+                return $this->api('GET', 'me/permissions');
         }
 
         throw new Exception(sprintf('"%s" command is not available', $cmd));
@@ -194,7 +196,7 @@ class SkyDriveAPI
     {
         $path = $path ?: 'me/skydrive';
 
-        return $this->curl('POST', self::baseUrl.$path, array(
+        return $this->api('POST', $path, array(
             'name' => $name,
             'description' => $description
         ));
@@ -214,7 +216,7 @@ class SkyDriveAPI
         ));
 
         if ($path) {
-            $current = $this->curl('GET', self::baseUrl.$path);
+            $current = $this->api('GET', $path);
 
             if (strstr($current['parent_id'], '!')) {
                 $location[] = array(
@@ -233,7 +235,7 @@ class SkyDriveAPI
         );
 
         if (empty($path) || (isset($current) && isset($current['count']) && ($current['count'] > 0))) {
-            $contents = $this->curl('GET', self::baseUrl.$path.'/files?'.http_build_query(array(
+            $contents = $this->api('GET', $path.'/files?'.http_build_query(array(
                 'sort_by' => $this->settings['contents_sort_by'],
                 'sort_order' => $this->settings['contents_sort_order'],
                 'limit' => $this->settings['contents_limit']
@@ -260,7 +262,7 @@ class SkyDriveAPI
 
     public function downloadFile ($file)
     {
-        return $this->curl('GET', self::baseUrl.$file.'/content?download=true', array(), false);
+        return $this->api('GET', $file.'/content?download=true', array(), false);
     }
 
     public function uploadFile ($file, $name, $path)
@@ -271,7 +273,7 @@ class SkyDriveAPI
 
         $path = $path ?: 'me/skydrive';
 
-        return $this->curl('PUT', self::baseUrl.$path.'/files/'.urlencode($name), array(
+        return $this->api('PUT', $path.'/files/'.urlencode($name), array(
             'file' => $file
         ));
     }
@@ -282,7 +284,7 @@ class SkyDriveAPI
             throw new Exception('This file or folder can not be deleted');
         }
 
-        return $this->curl('DELETE', self::baseUrl.$current);
+        return $this->api('DELETE', $current);
     }
 
     public function copy ($original, $path)
@@ -291,7 +293,7 @@ class SkyDriveAPI
             throw new Exception('This file can not be deleted');
         }
 
-        return $this->curl('COPY', self::baseUrl.$original, array(
+        return $this->api('COPY', $original, array(
             'destination' => $path
         ));
     }
@@ -302,7 +304,7 @@ class SkyDriveAPI
             throw new Exception('This file can not be deleted');
         }
 
-        return $this->curl('MOVE', self::baseUrl.$original, array(
+        return $this->api('MOVE', $original, array(
             'destination' => $path
         ));
     }
