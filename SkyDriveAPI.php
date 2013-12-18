@@ -5,19 +5,19 @@ use \Exception;
 
 class SkyDriveAPI
 {
-    const authUrl = 'https://login.live.com/oauth20_authorize.srf';
-    const codeUrl = 'https://login.live.com/oauth20_token.srf';
-    const baseUrl = 'https://apis.live.net/v5.0/';
+    const URL_AUTH = 'https://login.live.com/oauth20_authorize.srf';
+    const URL_TOKEN = 'https://login.live.com/oauth20_token.srf';
+    const URL_API = 'https://apis.live.net/v5.0/';
 
-    const settings_contents_limit = 1000;
-    const settings_contents_sort_by = 'name';
-    const settings_contents_sort_order = 'ascending';
+    const SETTINGS_CONTENTS_LIMIT = 1000;
+    const SETTINGS_CONTENTS_SORT_BY = 'name';
+    const SETTINGS_CONTENTS_SORT_ORDER = 'ascending';
 
-    const settings_cookie_name = 'skydrive-php-api';
-    const settings_cookie_expire = 2592000; // 3600 * 24 * 30
-    const settings_cookie_path = '/';
+    const SETTINGS_COOKIE_NAME = 'skydrive-php-api';
+    const SETTINGS_COOKIE_EXPIRE = 2592000; // 3600 * 24 * 30
+    const SETTINGS_COOKIE_PATH = '/';
 
-    const settings_scope = 'wl.basic wl.skydrive wl.skydrive_update wl.offline_access';
+    const SETTINGS_SCOPE = 'wl.basic wl.skydrive wl.skydrive_update wl.offline_access';
 
     private $token = '';
     private $settings = array();
@@ -30,7 +30,8 @@ class SkyDriveAPI
             throw new Exception('cURL PHP extension is required');
         }
 
-        $settings = $this->setSettings($settings);
+        $this->setSettings($settings);
+
         $cookie = $this->cookie();
 
         if (isset($cookie['access_token'])) {
@@ -48,58 +49,58 @@ class SkyDriveAPI
         }
     }
 
-    public function setSettings ($settings)
+    public function setSettings ($s)
     {
-        if (empty($settings['client_id'])) {
+        if (empty($s['client_id'])) {
             throw new Exception('"client_id" is a required parameter to settings');
         }
 
-        if (empty($settings['client_secret'])) {
+        if (empty($s['client_secret'])) {
             throw new Exception('"client_secret" is a required parameter to settings');
         }
 
-        if (empty($settings['contents_limit'])) {
-            $settings['contents_limit'] = self::settings_contents_limit;
+        if (empty($s['contents_limit'])) {
+            $s['contents_limit'] = self::SETTINGS_CONTENTS_LIMIT;
         }
 
-        if (empty($settings['contents_sort_by'])) {
-            $settings['contents_sort_by'] = self::settings_contents_sort_by;
+        if (empty($s['contents_sort_by'])) {
+            $s['contents_sort_by'] = self::SETTINGS_CONTENTS_SORT_BY;
         }
 
-        if (empty($settings['contents_sort_order'])) {
-            $settings['contents_sort_order'] = self::settings_contents_sort_order;
+        if (empty($s['contents_sort_order'])) {
+            $s['contents_sort_order'] = self::SETTINGS_CONTENTS_SORT_ORDER;
         }
 
-        if (empty($settings['redirect_uri'])) {
-            $settings['redirect_uri'] = self::uri();
+        if (empty($s['redirect_uri'])) {
+            $s['redirect_uri'] = self::uri();
         }
 
-        if (empty($settings['scope'])) {
-            $settings['scope'] = self::settings_scope;
+        if (empty($s['scope'])) {
+            $s['scope'] = self::SETTINGS_SCOPE;
         }
 
-        if (empty($settings['cookie_expire'])) {
-            $settings['cookie_expire'] = time() + self::settings_cookie_expire;
-        } else if ($settings['cookie_expire'] <= time()) {
-            $settings['cookie_expire'] += time();
+        if (empty($s['cookie_expire'])) {
+            $s['cookie_expire'] = time() + self::SETTINGS_COOKIE_EXPIRE;
+        } else if ($s['cookie_expire'] <= time()) {
+            $s['cookie_expire'] += time();
         }
 
-        if (empty($settings['cookie_name'])) {
-            $settings['cookie_name'] = self::settings_cookie_name;
+        if (empty($s['cookie_name'])) {
+            $s['cookie_name'] = self::SETTINGS_COOKIE_NAME;
         }
 
-        if (empty($settings['cookie_path'])) {
-            $settings['cookie_path'] = self::settings_cookie_path;
+        if (empty($s['cookie_path'])) {
+            $s['cookie_path'] = self::SETTINGS_COOKIE_PATH;
         }
 
-        return $this->settings = $settings;
+        return $this->settings = $s;
     }
 
     private function authenticate ()
     {
         $this->cookie(true);
 
-        $url = self::authUrl.'?'.http_build_query(array(
+        $url = self::URL_AUTH.'?'.http_build_query(array(
             'redirect_uri' => $this->settings['redirect_uri'],
             'client_id' => $this->settings['client_id'],
             'scope' => $this->settings['scope'],
@@ -127,7 +128,7 @@ class SkyDriveAPI
         $this->cookie(true);
 
         try {
-            $response = $this->curl('GET', self::codeUrl.'?'.http_build_query($query));
+            $response = $this->curl('GET', self::URL_TOKEN.'?'.http_build_query($query));
         } catch (Exception $e) {
             throw new Exception('Sorry but your login haven\'t been authorized to use SkyDrive. Error: '.$e->getMessage());
         }
@@ -153,7 +154,7 @@ class SkyDriveAPI
         $this->cookie(true);
 
         try {
-            $response = $this->curl('GET', self::codeUrl.'?'.http_build_query($query));
+            $response = $this->curl('GET', self::URL_TOKEN.'?'.http_build_query($query));
         } catch (Exception $e) {
             throw new Exception('Sorry but your login haven\'t been authorized to use SkyDrive. Error: '.$e->getMessage());
         }
@@ -173,7 +174,7 @@ class SkyDriveAPI
             return $this->api[$key];
         }
 
-        return $this->api[$key] = $this->curl($method, self::baseUrl.$cmd, $data, $json);
+        return $this->api[$key] = $this->curl($method, self::URL_API.$cmd, $data, $json);
     }
 
     public function me ($cmd = 'me')
