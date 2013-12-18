@@ -403,8 +403,8 @@ class SkyDriveAPI
             $port = ($port && ($port !== 80)) ? (':'.$port) : '';
         }
 
-        $uri = preg_replace('/(^|\W)code=[^&]+/', '$1', getenv('REQUEST_URI'));
-        $uri = preg_replace('/(\?|\&)$/', '', $uri);
+        $uri = preg_replace('/(^|\W)code=[^&]*/', '$1', getenv('REQUEST_URI'));
+        $uri = preg_replace('/(\?|&)$/', '', $uri);
 
         return 'http'.($https ? 's' : '').'://'.getenv('SERVER_NAME').$port.$uri;
     }
