@@ -1,7 +1,7 @@
 <?php
 namespace SkyDriveAPI;
 
-use \Exception;
+use Exception;
 
 class SkyDriveAPI
 {
